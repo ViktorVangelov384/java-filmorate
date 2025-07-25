@@ -1,64 +1,81 @@
 package ru.yandex.practicum.filmorate;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
 import ru.yandex.practicum.filmorate.model.User;
 
 import java.time.LocalDate;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@SpringBootTest
+@AutoConfigureMockMvc
 public class UserValidationTests {
 
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @Test
-    void shouldRejectEmptyEmail() {
+    void shouldRejectEmptyEmail() throws Exception {
         User user = createValidUser();
-        user.setEmail(" ");
-        assertTrue(user.getEmail().isBlank());
+        user.setEmail("");
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void shouldRejectInbvalidEmail() {
+    void shouldeRejectInvalidEmail() throws Exception {
         User user = createValidUser();
-        user.setEmail("valid.email.com");
-        assertFalse(user.getEmail().contains("@"));
+        user.setEmail("invalid-email.com");
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void shouldRejectEmptyLogin() {
+    void shouldRejectEmptyLogin() throws Exception {
         User user = createValidUser();
-        user.setLogin(" ");
-        assertTrue(user.getLogin().isBlank());
+        user.setLogin("");
+
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void shouldRejectLoginWithSpaces() {
+    void shouldRejectLoginWithSpaces() throws Exception {
         User user = createValidUser();
-        user.setLogin("valid login");
-        assertTrue(user.getLogin().contains(" "));
+        user.setLogin("Invalid Log");
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void shouldAcceptEmptyName() {
-        User user = createValidUser();
-        user.setName(" ");
-        assertTrue(user.getName() == null || user.getName().isBlank());
-    }
-
-    @Test
-    void shouldRejectFutureBirthday() {
+    void shouldRejectFutureBirthday() throws Exception {
         User user = createValidUser();
         user.setBirthday(LocalDate.now().plusDays(3));
-        assertTrue(user.getBirthday().isAfter(LocalDate.now()));
-    }
 
-    @Test
-    void shoudAcceptValidUser() {
-        User user = createValidUser();
-        assertFalse(user.getEmail().isBlank());
-        assertTrue(user.getEmail().contains("@"));
-        assertFalse(user.getLogin().isBlank());
-        assertFalse(user.getLogin().contains(" "));
-        assertFalse(user.getBirthday().isAfter(LocalDate.now()));
+        mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isBadRequest());
     }
 
     private User createValidUser() {

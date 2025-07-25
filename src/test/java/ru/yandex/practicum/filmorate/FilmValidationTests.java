@@ -1,80 +1,76 @@
 package ru.yandex.practicum.filmorate;
 
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
-import jakarta.validation.ValidatorFactory;
-import org.junit.jupiter.api.BeforeAll;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import ru.yandex.practicum.filmorate.controller.FilmController;
 import ru.yandex.practicum.filmorate.model.Film;
 
 import java.time.LocalDate;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@SpringBootTest
+@AutoConfigureMockMvc
 public class FilmValidationTests {
-    private static Validator validator;
-    private static LocalDate MIN_DATE = LocalDate.of(1895, 12, 28);
 
-    @BeforeAll
-    static void setup() {
-        try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
-            validator = factory.getValidator();
-        }
-    }
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Test
-    void shouldRejectEmptyName() {
+    void shouldRejectLongDescription() throws Exception {
         Film film = createValidFilm();
-        film.setName(" ");
-        assertTrue(film.getName().isBlank());
+        film.setDescription("a".repeat(201));
+        mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(film)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void shouldRejectLongDescription() {
-        Film film = createValidFilm();
-        film.setDescription("a".repeat(203));
-        assertTrue(film.getDescription().length() > 200);
-    }
-
-    @Test
-    void shouldAccept200Symbols() {
+    void shouldAccept200SymboloDescription() throws Exception {
         Film film = createValidFilm();
         film.setDescription("a".repeat(200));
-        assertEquals(200, film.getDescription().length());
+        mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(film)))
+                .andExpect(status().isOk());
     }
 
     @Test
-    void shouldRejectEarlyReleaseDate() {
+    void shouldRejectEarlyReleaseDate() throws Exception {
         Film film = createValidFilm();
-        film.setReleaseDate(MIN_DATE.minusDays(3));
-        assertTrue(film.getReleaseDate().isBefore(MIN_DATE));
-
+        film.setReleaseDate(FilmController.MIN_RELEASE_DATE.minusDays(3));
+        mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(film)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void shouldRejectNonPositiveDuration() {
+    void shouldRejectNegativeDuration() throws Exception {
         Film film = createValidFilm();
         film.setDuration(-5);
-        assertTrue(film.getDuration() <= 0);
-    }
-
-    @Test
-    void shouldAcceptValidFilm() {
-        Film film = createValidFilm();
-        assertFalse(film.getName().isBlank());
-        assertTrue(film.getDescription().length() < 200);
-        assertNotNull(film.getReleaseDate());
-        assertFalse(film.getReleaseDate().isBefore(MIN_DATE));
-        assertTrue(film.getDuration() > 0);
+        mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(film)))
+                .andExpect(status().isBadRequest());
     }
 
     private Film createValidFilm() {
         Film film = new Film();
         film.setName("Фильм");
         film.setDescription("Описание фильма");
-        film.setReleaseDate(MIN_DATE.plusYears(120));
-        film.setDuration(130);
+        film.setReleaseDate(LocalDate.now());
+        film.setDuration(120);
         return film;
     }
-
 }

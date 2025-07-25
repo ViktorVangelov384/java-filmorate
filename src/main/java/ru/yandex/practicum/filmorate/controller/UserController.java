@@ -6,7 +6,6 @@ import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 
-import java.time.LocalDate;
 import java.util.*;
 
 @RestController
@@ -46,16 +45,5 @@ public class UserController {
             log.debug("Для пользователя {} установлен login в качестве name", user.getLogin());
             user.setName(user.getLogin());
         }
-
-        if (user.getBirthday().isAfter(LocalDate.now())) {
-            throw new ValidationException("Дата рождения не может быть в будущем");
-        }
     }
 }
-
-
-
-
-
-
-
