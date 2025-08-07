@@ -25,6 +25,7 @@ public class FilmValidationTests {
     @Autowired
     private ObjectMapper objectMapper;
 
+
     @Test
     void shouldRejectLongDescription() throws Exception {
         Film film = createValidFilm();
@@ -36,7 +37,7 @@ public class FilmValidationTests {
     }
 
     @Test
-    void shouldAccept200SymboloDescription() throws Exception {
+    void shouldAccept200SymbolDescription() throws Exception {
         Film film = createValidFilm();
         film.setDescription("a".repeat(200));
         mockMvc.perform(post("/films")

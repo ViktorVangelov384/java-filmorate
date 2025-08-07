@@ -36,7 +36,7 @@ public class UserValidationTests {
     }
 
     @Test
-    void shouldeRejectInvalidEmail() throws Exception {
+    void shouldRejectInvalidEmail() throws Exception {
         User user = createValidUser();
         user.setEmail("invalid-email.com");
 
