@@ -68,10 +68,6 @@ public class FilmService {
         filmStorage.update(film);
     }
 
-    public Set<Integer> getLikes(int filmId) {
-        return filmStorage.getLikes(filmId);
-    }
-
     public List<Film> getPopular(int count) {
         return filmStorage.getAll().stream()
                 .sorted(Comparator.comparingInt(f -> -f.getLikes().size())) // Сортируем по убыванию
