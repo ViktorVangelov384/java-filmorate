@@ -2,6 +2,7 @@ package ru.yandex.practicum.filmorate.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -36,5 +37,11 @@ public class GlobalExceptionHandler {
     public ErrorResponse handleInternalError(Exception e) {
         log.error("Internal error", e);
         return new ErrorResponse("Произошла внутренняя ошибка сервера");
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleDataAccess(DataAccessException e) {
+        return new ErrorResponse("Запрашиваемый ресурс не найден");
     }
 }
