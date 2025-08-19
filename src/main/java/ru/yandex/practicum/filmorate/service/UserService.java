@@ -4,6 +4,7 @@ package ru.yandex.practicum.filmorate.service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.model.FriendshipStatus;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
@@ -42,27 +43,22 @@ public class UserService {
 
     public void addFriend(int userId, int friendId) {
         User user = userStorage.getById(userId);
-        if (user == null) {
-            throw new NotFoundException("Пользователь с id " + userId + " не найден");
-        }
         User friend = userStorage.getById(friendId);
-        if (friend == null) {
-            throw new NotFoundException("Пользователь с id " + friendId + " не найден");
+        boolean hasReverseRequest = friend.getFriends().containsKey(userId)
+                && friend.getFriends().get(userId) == FriendshipStatus.PENDING;
+
+        if (hasReverseRequest) {
+            userStorage.updateFriendStatus(userId, friendId, FriendshipStatus.CONFIRMED);
+            userStorage.updateFriendStatus(friendId, userId, FriendshipStatus.CONFIRMED);
+        } else {
+            userStorage.addFriend(userId, friendId, FriendshipStatus.PENDING);
+            userStorage.addFriend(friendId, userId, FriendshipStatus.PENDING);
         }
-        user.getFriends().add(friendId);
-        friend.getFriends().add(userId);
     }
 
     public void removeFriend(int userId, int friendId) {
-        User user = userStorage.getById(userId);
-        User friend = userStorage.getById(friendId);
-
-        user.getFriends().remove(friendId);
-        friend.getFriends().remove(userId);
-    }
-
-    public Set<Integer> getFriendIds(int userId) {
-        return userStorage.getFriends(userId);
+        userStorage.removeFriend(userId, friendId);
+        userStorage.removeFriend(friendId, userId);
     }
 
     public List<User> getCommonFriends(int userId, int otherId) {
@@ -74,9 +70,15 @@ public class UserService {
         if (otherUser == null) {
             throw new NotFoundException("Пользователь с id " + otherId + " не найден");
         }
+        Set<Integer> userFriends = user.getFriends().entrySet().stream()
+                .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
 
-        Set<Integer> userFriends = getFriendIds(userId);
-        Set<Integer> otherFriends = getFriendIds(otherId);
+        Set<Integer> otherFriends = otherUser.getFriends().entrySet().stream()
+                .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
 
         return userFriends.stream()
                 .filter(otherFriends::contains)
@@ -85,11 +87,40 @@ public class UserService {
     }
 
     public List<User> getFriends(int userId) {
-        return getFriendIds(userId).stream()
-                .map(this::getById)
+        User user = userStorage.getById(userId);
+        return user.getFriends().entrySet().stream()
+                .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
+                .map(entry -> userStorage.getById(entry.getKey()))
                 .collect(Collectors.toList());
     }
 
+    public List<User> getFriendRequests(int userId) {
+        User user = userStorage.getById(userId);
+        List<User> result =  user.getFriends().entrySet().stream()
+                .filter(entry -> entry.getValue() == FriendshipStatus.PENDING)
+                .map(entry -> userStorage.getById(entry.getKey()))
+                .collect(Collectors.toList());
+        return result;
+    }
+
+    public void confirmFriend(int userId, int friendId) {
+        FriendshipStatus status = userStorage.getFriendshipStatus(friendId, userId);
+
+        if (status == null || status != FriendshipStatus.PENDING) {
+            throw new IllegalStateException("Нет pending запроса на дружбу от пользователя " + friendId);
+        }
+
+        userStorage.updateFriendStatus(userId, friendId, FriendshipStatus.CONFIRMED);
+        userStorage.updateFriendStatus(friendId, userId, FriendshipStatus.CONFIRMED);
+    }
+
+    public List<User> getConfirmedFriends(int userId) {
+        User user = userStorage.getById(userId);
+        return user.getFriends().entrySet().stream()
+                .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
+                .map(entry -> userStorage.getById(entry.getKey()))
+                .collect(Collectors.toList());
+    }
 
     private void validateName(User user) {
         if (user.getName() == null || user.getName().isBlank()) {
