@@ -65,4 +65,13 @@ public class FilmController {
         return filmService.getPopular(count);
     }
 
+    @PutMapping("/{id}/genres/{genreId}")
+    public void addGenre(@PathVariable int id, @PathVariable int genreId) {
+        filmService.addGenreToFilm(id, genreId);
+    }
+
+    @DeleteMapping("/{id}/genres/{genreId}")
+    public void removeGenre(@PathVariable int id, @PathVariable int genreId) {
+        filmService.removeGenreFromFilm(id, genreId);
+    }
 }
