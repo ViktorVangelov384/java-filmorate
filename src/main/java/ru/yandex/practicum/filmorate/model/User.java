@@ -45,5 +45,4 @@ public class User {
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
     }
-
 }

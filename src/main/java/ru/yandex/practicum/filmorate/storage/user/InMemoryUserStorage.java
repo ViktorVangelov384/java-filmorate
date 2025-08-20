@@ -1,6 +1,5 @@
 package ru.yandex.practicum.filmorate.storage.user;
 
-
 import org.springframework.stereotype.Component;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.User;
@@ -9,7 +8,7 @@ import ru.yandex.practicum.filmorate.model.FriendshipStatus;
 import java.util.*;
 
 @Component
-public class InMemoryUserHistory implements UserStorage {
+public class InMemoryUserStorage implements UserStorage {
     private final Map<Integer, User> users = new HashMap<>();
     private int idCounter = 1;
 
@@ -22,9 +21,11 @@ public class InMemoryUserHistory implements UserStorage {
 
     @Override
     public User update(User user) {
+        if (!users.containsKey(user.getId())) {
+            throw new NotFoundException("Пользователь с id " + user.getId() + " не найден");
+        }
         users.put(user.getId(), user);
         return user;
-
     }
 
     @Override
@@ -48,27 +49,23 @@ public class InMemoryUserHistory implements UserStorage {
 
     @Override
     public Set<Integer> getFriends(int userId) {
-        User user = users.get(userId);
-        if (user == null) {
-            throw new NotFoundException("Пользователь с id " + userId + " не найден");
-        }
-        return user.getFriends().keySet();
+        return getById(userId).getFriends().keySet();
     }
 
     @Override
     public void addFriend(int userId, int friendId, FriendshipStatus status) {
         User user = getById(userId);
         User friend = getById(friendId);
-        FriendshipStatus reverseStatus = friend.getFriends().get(userId);
-        if (reverseStatus == FriendshipStatus.PENDING && status == FriendshipStatus.PENDING) {
+
+        boolean hasReverseRequest = friend.getFriends().containsKey(userId)
+                && friend.getFriends().get(userId) == FriendshipStatus.PENDING;
+
+        if (hasReverseRequest) {
             user.getFriends().put(friendId, FriendshipStatus.CONFIRMED);
             friend.getFriends().put(userId, FriendshipStatus.CONFIRMED);
         } else {
-            user.getFriends().put(friendId, FriendshipStatus.PENDING);
-            friend.getFriends().put(userId, FriendshipStatus.PENDING);
+            user.getFriends().put(friendId, status);
         }
-        user.getFriends().put(friendId, status);
-        friend.getFriends().put(userId, status);
     }
 
     @Override
@@ -88,7 +85,6 @@ public class InMemoryUserHistory implements UserStorage {
     @Override
     public FriendshipStatus getFriendshipStatus(int userId, int friendId) {
         User user = getById(userId);
-        return user.getFriends().getOrDefault(friendId, null);
+        return user.getFriends().get(friendId);
     }
-
 }

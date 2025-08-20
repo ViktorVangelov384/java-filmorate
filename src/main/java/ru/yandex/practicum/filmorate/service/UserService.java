@@ -52,7 +52,6 @@ public class UserService {
             userStorage.updateFriendStatus(friendId, userId, FriendshipStatus.CONFIRMED);
         } else {
             userStorage.addFriend(userId, friendId, FriendshipStatus.PENDING);
-            userStorage.addFriend(friendId, userId, FriendshipStatus.PENDING);
         }
     }
 
