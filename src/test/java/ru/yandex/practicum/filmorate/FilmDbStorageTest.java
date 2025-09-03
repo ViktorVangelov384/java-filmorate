@@ -1,86 +1,253 @@
 package ru.yandex.practicum.filmorate;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.jdbc.Sql;
 import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.model.Genre;
+import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
-import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 
 import java.time.LocalDate;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
 
 @JdbcTest
 @AutoConfigureTestDatabase
-@Import({FilmDbStorage.class, UserDbStorage.class})
-@ActiveProfiles("test")
-class FilmDbStorageTest extends AbstractStorageTest {
+@Sql(scripts = {"/schema.sql", "/data.sql"})
+class FilmDbStorageTest {
 
     @Autowired
-    private FilmDbStorage filmStorage;
+    private JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private UserDbStorage userStorage;
+    private FilmDbStorage filmDbStorage;
+
+    @BeforeEach
+    void setUp() {
+        filmDbStorage = new FilmDbStorage(jdbcTemplate);
+    }
 
     @Test
     void testCreateFilm() {
-        Film film = createTestFilm();
-        Film createdFilm = filmStorage.create(film);
+        Film testFilm = createTestFilm();
 
-        assertThat(createdFilm).isNotNull();
-        assertThat(createdFilm.getId()).isPositive();
-        assertThat(createdFilm.getName()).isEqualTo("Test Film");
+        Film createdFilm = filmDbStorage.create(testFilm);
+
+        assertNotNull(createdFilm.getId());
+        assertTrue(createdFilm.getId() > 0);
+
+        assertEquals("Test Film", createdFilm.getName());
+        assertEquals("Test Description", createdFilm.getDescription());
+        assertEquals(LocalDate.of(2020, 1, 1), createdFilm.getReleaseDate());
+        assertEquals(120, createdFilm.getDuration());
+
+        assertNotNull(createdFilm.getMpa());
+        assertEquals(1, createdFilm.getMpa().getId());
+        assertEquals("G", createdFilm.getMpa().getName());
+
+        assertNotNull(createdFilm.getGenres());
+        assertEquals(2, createdFilm.getGenres().size());
+        assertTrue(createdFilm.getGenres().stream().anyMatch(
+                g -> g.getId() == 1 && g.getName().equals("Комедия")));
+        assertTrue(createdFilm.getGenres().stream().anyMatch(
+                g -> g.getId() == 2 && g.getName().equals("Драма")));
+
+        Integer filmsCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM films WHERE film_id = ?", Integer.class, createdFilm.getId());
+        assertEquals(1, filmsCount);
+
+        Integer mpaId = jdbcTemplate.queryForObject(
+                "SELECT mpa_id FROM films WHERE film_id = ?", Integer.class, createdFilm.getId());
+        assertEquals(1, mpaId);
+
+        Integer genresCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM film_genres WHERE film_id = ?", Integer.class, createdFilm.getId());
+        assertEquals(2, genresCount);
+
+        assertNotNull(createdFilm.getLikes());
+        assertTrue(createdFilm.getLikes().isEmpty());
+    }
+
+    @Test
+    void testGetFilmById() {
+        Film testFilm = createTestFilm();
+        Film createdFilm = filmDbStorage.create(testFilm);
+
+        Film retrievedFilm = filmDbStorage.getById(createdFilm.getId());
+
+        assertNotNull(retrievedFilm);
+        assertEquals(createdFilm.getId(), retrievedFilm.getId());
+        assertEquals("Test Film", retrievedFilm.getName());
+        assertEquals("Test Description", retrievedFilm.getDescription());
+        assertEquals(LocalDate.of(2020, 1, 1), retrievedFilm.getReleaseDate());
+        assertEquals(120, retrievedFilm.getDuration());
+        assertEquals(1, retrievedFilm.getMpa().getId());
+        assertEquals("G", retrievedFilm.getMpa().getName());
+        assertEquals(2, retrievedFilm.getGenres().size());
     }
 
     @Test
     void testUpdateFilm() {
-        Film film = filmStorage.create(createTestFilm());
-        film.setName("Updated Film");
+        Film testFilm = createTestFilm();
+        Film createdFilm = filmDbStorage.create(testFilm);
 
-        Film updatedFilm = filmStorage.update(film);
+        createdFilm.setName("Updated Film Name");
+        createdFilm.setDescription("Updated Description");
+        createdFilm.setDuration(150);
+        createdFilm.setMpa(new Mpa(2, "PG"));
 
-        assertThat(updatedFilm.getName()).isEqualTo("Updated Film");
-    }
+        Set<Genre> updatedGenres = new TreeSet<>((g1, g2) -> Integer.compare(g1.getId(), g2.getId()));
+        updatedGenres.add(new Genre(3, "Мультфильм"));
+        createdFilm.setGenres(updatedGenres);
 
-    @Test
-    void testGetById() {
-        Film film = filmStorage.create(createTestFilm());
-        Film foundFilm = filmStorage.getById(film.getId());
+        Film updatedFilm = filmDbStorage.update(createdFilm);
 
-        assertThat(foundFilm).isNotNull();
-        assertThat(foundFilm.getName()).isEqualTo("Test Film");
+        assertEquals(createdFilm.getId(), updatedFilm.getId());
+        assertEquals("Updated Film Name", updatedFilm.getName());
+        assertEquals("Updated Description", updatedFilm.getDescription());
+        assertEquals(150, updatedFilm.getDuration());
+        assertEquals(2, updatedFilm.getMpa().getId());
+        assertEquals("PG", updatedFilm.getMpa().getName());
+        assertEquals(1, updatedFilm.getGenres().size());
+        assertTrue(updatedFilm.getGenres().stream().anyMatch(g -> g.getId() == 3));
     }
 
     @Test
     void testGetAllFilms() {
-        filmStorage.create(createTestFilm());
-        filmStorage.create(createTestFilm2());
+        Film film1 = createTestFilm();
+        Film createdFilm1 = filmDbStorage.create(film1);
 
-        List<Film> films = filmStorage.getAll();
+        Film film2 = new Film();
+        film2.setName("Another Film");
+        film2.setDescription("Another Description");
+        film2.setReleaseDate(LocalDate.of(2021, 2, 2));
+        film2.setDuration(90);
+        film2.setMpa(new Mpa(2, "PG"));
+        film2.setGenres(Set.of(new Genre(4, "Триллер")));
 
-        assertThat(films).hasSize(2);
+        Film createdFilm2 = filmDbStorage.create(film2);
+
+        List<Film> allFilms = filmDbStorage.getAll();
+
+        assertNotNull(allFilms);
+        assertEquals(2, allFilms.size());
+        assertTrue(allFilms.stream().anyMatch(f -> f.getId() == createdFilm1.getId()));
+        assertTrue(allFilms.stream().anyMatch(f -> f.getId() == createdFilm2.getId()));
     }
 
     @Test
-    void testAddLike() {
-        Film film = filmStorage.create(createTestFilm());
-        ru.yandex.practicum.filmorate.model.User user = createTestUser();
-        userStorage.create(user);
+    void testDeleteFilm() {
+        Film testFilm = createTestFilm();
+        Film createdFilm = filmDbStorage.create(testFilm);
 
-        film.getLikes().add(user.getId());
-        filmStorage.update(film);
+        assertNotNull(filmDbStorage.getById(createdFilm.getId()));
 
-        Film filmWithLike = filmStorage.getById(film.getId());
-        assertThat(filmWithLike.getLikes()).contains(user.getId());
+        filmDbStorage.delete(createdFilm.getId());
+
+        List<Film> allFilms = filmDbStorage.getAll();
+        assertTrue(allFilms.isEmpty());
+
+        assertThrows(org.springframework.dao.EmptyResultDataAccessException.class,
+                () -> filmDbStorage.getById(createdFilm.getId()));
+    }
+
+    @Test
+    void testAddAndRemoveLike() {
+        Film testFilm = createTestFilm();
+        Film createdFilm = filmDbStorage.create(testFilm);
+
+        jdbcTemplate.update("INSERT INTO users (email, login, name, birthday) VALUES (?, ?, ?, ?)",
+                "test@mail.com", "testuser", "Test User",
+                java.sql.Date.valueOf(LocalDate.of(1990, 1, 1)));
+
+        Integer userId = jdbcTemplate.queryForObject("SELECT user_id FROM users WHERE login = ?",
+                Integer.class, "testuser");
+
+        filmDbStorage.addLike(createdFilm.getId(), userId);
+
+        Film filmWithLike = filmDbStorage.getById(createdFilm.getId());
+        assertEquals(1, filmWithLike.getLikes().size());
+        assertTrue(filmWithLike.getLikes().contains(userId));
+
+        filmDbStorage.removeLike(createdFilm.getId(), userId);
+
+        Film filmWithoutLike = filmDbStorage.getById(createdFilm.getId());
+        assertEquals(0, filmWithoutLike.getLikes().size());
+    }
+
+    @Test
+    void testGetPopularFilms() {
+        Film film1 = createTestFilm();
+        Film createdFilm1 = filmDbStorage.create(film1);
+
+        Film film2 = new Film();
+        film2.setName("Popular Film");
+        film2.setDescription("Very popular film");
+        film2.setReleaseDate(LocalDate.of(2022, 3, 3));
+        film2.setDuration(110);
+        film2.setMpa(new Mpa(3, "PG-13"));
+        film2.setGenres(Set.of(new Genre(6, "Боевик")));
+
+        Film createdFilm2 = filmDbStorage.create(film2);
+
+        jdbcTemplate.update("INSERT INTO users (email, login, name, birthday) VALUES (?, ?, ?, ?)",
+                "user1@mail.com", "user1", "User One",
+                java.sql.Date.valueOf(LocalDate.of(1990, 1, 1)));
+
+        jdbcTemplate.update("INSERT INTO users (email, login, name, birthday) VALUES (?, ?, ?, ?)",
+                "user2@mail.com", "user2", "User Two",
+                java.sql.Date.valueOf(LocalDate.of(1991, 2, 2)));
+
+        Integer user1Id = jdbcTemplate.queryForObject("SELECT user_id FROM users WHERE login = ?",
+                Integer.class, "user1");
+        Integer user2Id = jdbcTemplate.queryForObject("SELECT user_id FROM users WHERE login = ?",
+                Integer.class, "user2");
+
+        filmDbStorage.addLike(createdFilm2.getId(), user1Id);
+        filmDbStorage.addLike(createdFilm2.getId(), user2Id);
+        filmDbStorage.addLike(createdFilm1.getId(), user1Id);
+
+        List<Film> popularFilms = filmDbStorage.getPopular(2);
+
+        assertEquals(2, popularFilms.size());
+        assertEquals(createdFilm2.getId(), popularFilms.get(0).getId());
+        assertEquals(createdFilm1.getId(), popularFilms.get(1).getId());
+    }
+
+    @Test
+    void testFilmWithSingleGenre() {
+        Film film = new Film();
+        film.setName("Single Genre Film");
+        film.setDescription("Film with one genre");
+        film.setReleaseDate(LocalDate.of(2023, 5, 5));
+        film.setDuration(80);
+        film.setMpa(new Mpa(5, "NC-17"));
+
+        Set<Genre> genres = new TreeSet<>((g1, g2) -> Integer.compare(g1.getId(), g2.getId()));
+        genres.add(new Genre(5, "Документальный"));
+        film.setGenres(genres);
+
+        Film createdFilm = filmDbStorage.create(film);
+        Film retrievedFilm = filmDbStorage.getById(createdFilm.getId());
+
+        assertNotNull(retrievedFilm);
+        assertEquals("Single Genre Film", retrievedFilm.getName());
+        assertEquals(1, retrievedFilm.getGenres().size());
+        assertTrue(retrievedFilm.getGenres().stream().anyMatch(g -> g.getId() == 5));
+        assertEquals("NC-17", retrievedFilm.getMpa().getName());
+    }
+
+    @Test
+    void testGetNonExistentFilm() {
+        assertThrows(org.springframework.dao.EmptyResultDataAccessException.class,
+                () -> filmDbStorage.getById(9999));
     }
 
     private Film createTestFilm() {
@@ -89,40 +256,13 @@ class FilmDbStorageTest extends AbstractStorageTest {
         film.setDescription("Test Description");
         film.setReleaseDate(LocalDate.of(2020, 1, 1));
         film.setDuration(120);
+        film.setMpa(new Mpa(1, "G"));
 
-        Mpa mpa = new Mpa();
-        mpa.setId(1);
-        film.setMpa(mpa);
-
-        Set<Genre> genres = new HashSet<>();
-        Genre genre = new Genre();
-        genre.setId(1);
-        genres.add(genre);
+        Set<Genre> genres = new TreeSet<>((g1, g2) -> Integer.compare(g1.getId(), g2.getId()));
+        genres.add(new Genre(1, "Комедия"));
+        genres.add(new Genre(2, "Драма"));
         film.setGenres(genres);
 
         return film;
-    }
-
-    private Film createTestFilm2() {
-        Film film = new Film();
-        film.setName("Test Film 2");
-        film.setDescription("Test Description 2");
-        film.setReleaseDate(LocalDate.of(2021, 1, 1));
-        film.setDuration(90);
-
-        Mpa mpa = new Mpa();
-        mpa.setId(2);
-        film.setMpa(mpa);
-
-        return film;
-    }
-
-    private ru.yandex.practicum.filmorate.model.User createTestUser() {
-        ru.yandex.practicum.filmorate.model.User user = new ru.yandex.practicum.filmorate.model.User();
-        user.setEmail("test@mail.ru");
-        user.setLogin("testLogin");
-        user.setName("Test User");
-        user.setBirthday(LocalDate.of(1990, 1, 1));
-        return user;
     }
 }

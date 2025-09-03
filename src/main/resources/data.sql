@@ -1,13 +1,12 @@
-DELETE FROM films;
 DELETE FROM mpa_ratings;
 DELETE FROM genres;
 
-INSERT INTO mpa_ratings (mpa_id, name, description) VALUES
-(1, 'G', 'У фильма нет возрастных ограничений'),
-(2, 'PG', 'Детям рекомендуется смотреть фильм с родителями'),
-(3, 'PG-13', 'Детям до 13 лет просмотр не желателен'),
-(4, 'R', 'Лицам до 17 лет просматривать фильм можно только в присутствии взрослого'),
-(5, 'NC-17', 'Лицам до 18 лет просмотр запрещён');
+INSERT INTO mpa_ratings (mpa_id, name) VALUES
+(1, 'G'),
+(2, 'PG'),
+(3, 'PG-13'),
+(4, 'R'),
+(5, 'NC-17');
 
 INSERT INTO genres (genre_id, name) VALUES
 (1, 'Комедия'),

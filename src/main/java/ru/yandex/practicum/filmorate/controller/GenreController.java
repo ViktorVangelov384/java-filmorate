@@ -2,9 +2,8 @@ package ru.yandex.practicum.filmorate.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Genre;
-import ru.yandex.practicum.filmorate.storage.film.GenreDbStorage;
+import ru.yandex.practicum.filmorate.service.GenreService;
 
 import java.util.List;
 
@@ -12,25 +11,20 @@ import java.util.List;
 @RequestMapping("/genres")
 public class GenreController {
 
-    private final GenreDbStorage genreStorage;
+    private final GenreService genreService;
 
     @Autowired
-    public GenreController(GenreDbStorage genreStorage) {
-        this.genreStorage = genreStorage;
+    public GenreController(GenreService genreService) {
+        this.genreService = genreService;
     }
 
     @GetMapping
     public List<Genre> getAllGenres() {
-        return genreStorage.getAll();
+        return genreService.getAllGenres();
     }
 
     @GetMapping("/{id}")
     public Genre getGenreById(@PathVariable int id) {
-
-        Genre genre = genreStorage.getById(id);
-        if (genre == null) {
-            throw new NotFoundException("Такого жанра нет");
-        }
-        return genreStorage.getById(id);
+        return genreService.getGenreById(id);
     }
 }

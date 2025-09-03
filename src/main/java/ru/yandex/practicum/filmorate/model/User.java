@@ -7,8 +7,6 @@ import lombok.Data;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Data
 public class User {
@@ -28,22 +26,7 @@ public class User {
     private LocalDate birthday;
 
     @JsonIgnore
-    private Map<Integer, FriendshipStatus> friends = new HashMap<>();
+    private Map<Integer, Boolean> friends = new HashMap<>();
 
-    @JsonIgnore
-    public Set<Integer> getConfirmedFriendIds() {
-        return friends.entrySet().stream()
-                .filter(entry -> entry.getValue() == FriendshipStatus.CONFIRMED)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toSet());
-    }
-
-    @JsonIgnore
-    public Set<Integer> getPendingFriendIds() {
-        return friends.entrySet().stream()
-                .filter(entry -> entry.getValue() == FriendshipStatus.PENDING)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toSet());
-    }
 
 }

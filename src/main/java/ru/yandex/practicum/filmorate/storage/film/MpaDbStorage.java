@@ -17,17 +17,23 @@ public class MpaDbStorage {
     }
 
     public List<Mpa> getAll() {
-        String sql = "SELECT * FROM mpa_ratings ORDER BY mpa_id";
+        String sql = "SELECT * FROM mpa_ratings";
         return jdbcTemplate.query(sql, (rs, rowNum) ->
-                new Mpa(rs.getInt("mpa_id"), rs.getString("name"), rs.getString("description"))
+                new Mpa(
+                        rs.getInt("mpa_id"),
+                        rs.getString("name")
+                )
         );
+
     }
 
     public Mpa getById(int id) {
         String sql = "SELECT * FROM mpa_ratings WHERE mpa_id = ?";
         return jdbcTemplate.queryForObject(sql, (rs, rowNum) ->
-                        new Mpa(rs.getInt("mpa_id"), rs.getString("name"), rs.getString("description")),
-                id
+                new Mpa(
+                        rs.getInt("mpa_id"),
+                        rs.getString("name")
+                ), id
         );
     }
 }
