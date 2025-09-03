@@ -1,5 +1,10 @@
-DELETE FROM mpa_ratings;
+DELETE FROM film_genres;
+DELETE FROM likes;
+DELETE FROM friendships;
+DELETE FROM films;
+DELETE FROM users;
 DELETE FROM genres;
+DELETE FROM mpa_ratings;
 
 INSERT INTO mpa_ratings (mpa_id, name) VALUES
 (1, 'G'),

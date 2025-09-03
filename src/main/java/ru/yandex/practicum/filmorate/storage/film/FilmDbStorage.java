@@ -95,7 +95,6 @@ public class FilmDbStorage implements FilmStorage {
 
         if (film != null) {
             loadGenres(film);
-            loadLikes(film);
         }
 
         return film;
@@ -111,7 +110,6 @@ public class FilmDbStorage implements FilmStorage {
 
         films.forEach(film -> {
             loadGenres(film);
-            loadLikes(film);
         });
 
         return films;
@@ -150,7 +148,6 @@ public class FilmDbStorage implements FilmStorage {
         return jdbcTemplate.query(sql, (rs, rowNum) -> {
             Film film = filmRowMapper.mapRow(rs, rowNum);
             loadGenres(film);
-            loadLikes(film);
             return film;
         }, count);
     }
@@ -170,18 +167,6 @@ public class FilmDbStorage implements FilmStorage {
         }, film.getId());
 
         film.setGenres(genres);
-    }
-
-    private void loadLikes(Film film) {
-        String sql = "SELECT user_id FROM likes WHERE film_id = ?";
-        Set<Integer> likes = new HashSet<>();
-
-        jdbcTemplate.query(sql, (rs, rowNum) -> {
-            likes.add(rs.getInt("user_id"));
-            return null;
-        }, film.getId());
-
-        film.setLikes(likes);
     }
 
     private void updateGenres(Film film) {

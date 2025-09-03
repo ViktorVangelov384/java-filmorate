@@ -71,8 +71,6 @@ class FilmDbStorageTest {
                 "SELECT COUNT(*) FROM film_genres WHERE film_id = ?", Integer.class, createdFilm.getId());
         assertEquals(2, genresCount);
 
-        assertNotNull(createdFilm.getLikes());
-        assertTrue(createdFilm.getLikes().isEmpty());
     }
 
     @Test
@@ -156,30 +154,6 @@ class FilmDbStorageTest {
 
         assertThrows(org.springframework.dao.EmptyResultDataAccessException.class,
                 () -> filmDbStorage.getById(createdFilm.getId()));
-    }
-
-    @Test
-    void testAddAndRemoveLike() {
-        Film testFilm = createTestFilm();
-        Film createdFilm = filmDbStorage.create(testFilm);
-
-        jdbcTemplate.update("INSERT INTO users (email, login, name, birthday) VALUES (?, ?, ?, ?)",
-                "test@mail.com", "testuser", "Test User",
-                java.sql.Date.valueOf(LocalDate.of(1990, 1, 1)));
-
-        Integer userId = jdbcTemplate.queryForObject("SELECT user_id FROM users WHERE login = ?",
-                Integer.class, "testuser");
-
-        filmDbStorage.addLike(createdFilm.getId(), userId);
-
-        Film filmWithLike = filmDbStorage.getById(createdFilm.getId());
-        assertEquals(1, filmWithLike.getLikes().size());
-        assertTrue(filmWithLike.getLikes().contains(userId));
-
-        filmDbStorage.removeLike(createdFilm.getId(), userId);
-
-        Film filmWithoutLike = filmDbStorage.getById(createdFilm.getId());
-        assertEquals(0, filmWithoutLike.getLikes().size());
     }
 
     @Test

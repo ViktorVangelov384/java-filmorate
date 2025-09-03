@@ -27,6 +27,4 @@ public class User {
 
     @JsonIgnore
     private Map<Integer, Boolean> friends = new HashMap<>();
-
-
 }

@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.util.List;
@@ -14,14 +15,11 @@ import java.util.List;
 @Service
 public class UserService {
     private final UserStorage userStorage;
-    private final JdbcTemplate jdbcTemplate;
 
     @Autowired
     public UserService(@Qualifier("userDbStorage") UserStorage userStorage,
                        JdbcTemplate jdbcTemplate) {
         this.userStorage = userStorage;
-        this.jdbcTemplate = jdbcTemplate;
-
     }
 
     public User create(User user) {
@@ -59,8 +57,7 @@ public class UserService {
             throw new NotFoundException("Пользователь не найден");
         }
 
-        String sql = "MERGE INTO friendships (user_id, friend_id) VALUES (?, ?)";
-        jdbcTemplate.update(sql, userId, friendId);
+        ((UserDbStorage) userStorage).addFriend(userId, friendId);
     }
 
     public void removeFriend(int userId, int friendId) {
@@ -81,26 +78,12 @@ public class UserService {
             throw new NotFoundException("Пользователь не найден");
         }
 
-        String sql = "SELECT u.* FROM users u " +
-                "JOIN friendships f1 ON u.user_id = f1.friend_id " +
-                "JOIN friendships f2 ON u.user_id = f2.friend_id " +
-                "WHERE f1.user_id = ? AND f2.user_id = ?";
-
-        return jdbcTemplate.query(sql, userStorage.getUserRowMapper(), userId, otherId);
+        return ((UserDbStorage) userStorage).getCommonFriends(userId, otherId);
     }
 
     public List<User> getFriends(int userId) {
-        try {
-            userStorage.getById(userId);
-        } catch (EmptyResultDataAccessException e) {
-            throw new NotFoundException("Пользователь с id " + userId + " не найден");
-        }
-
-        String sql = "SELECT u.* FROM users u " +
-                "JOIN friendships f ON u.user_id = f.friend_id " +
-                "WHERE f.user_id = ?";
-
-        return jdbcTemplate.query(sql, userStorage.getUserRowMapper(), userId);
+        userStorage.getById(userId);
+        return userStorage.getFriends(userId);
     }
 
     private void validateName(User user) {
@@ -109,3 +92,4 @@ public class UserService {
         }
     }
 }
+
