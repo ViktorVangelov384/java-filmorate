@@ -61,5 +61,4 @@ public class UserController {
     public List<User> getFriends(@PathVariable int id) {
         return userService.getFriends(id);
     }
-
 }

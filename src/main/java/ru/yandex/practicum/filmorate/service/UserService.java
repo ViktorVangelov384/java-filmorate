@@ -1,21 +1,24 @@
 package ru.yandex.practicum.filmorate.service;
 
-
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.List;
 
 @Service
 public class UserService {
     private final UserStorage userStorage;
 
     @Autowired
-    public UserService(UserStorage userStorage) {
+    public UserService(@Qualifier("userDbStorage") UserStorage userStorage,
+                       JdbcTemplate jdbcTemplate) {
         this.userStorage = userStorage;
     }
 
@@ -25,7 +28,9 @@ public class UserService {
     }
 
     public User update(User user) {
-        if (userStorage.getById(user.getId()) == null) {
+        try {
+            userStorage.getById(user.getId());
+        } catch (EmptyResultDataAccessException e) {
             throw new NotFoundException("Пользователь с id " + user.getId() + " не найден");
         }
         validateName(user);
@@ -37,59 +42,49 @@ public class UserService {
     }
 
     public User getById(int id) {
-        return userStorage.getById(id);
+        try {
+            return userStorage.getById(id);
+        } catch (EmptyResultDataAccessException e) {
+            throw new NotFoundException("Пользователь с id " + id + " не найден");
+        }
     }
 
     public void addFriend(int userId, int friendId) {
-        User user = userStorage.getById(userId);
-        if (user == null) {
-            throw new NotFoundException("Пользователь с id " + userId + " не найден");
+        try {
+            userStorage.getById(userId);
+            userStorage.getById(friendId);
+        } catch (EmptyResultDataAccessException e) {
+            throw new NotFoundException("Пользователь не найден");
         }
-        User friend = userStorage.getById(friendId);
-        if (friend == null) {
-            throw new NotFoundException("Пользователь с id " + friendId + " не найден");
-        }
-        user.getFriends().add(friendId);
-        friend.getFriends().add(userId);
+
+        ((UserDbStorage) userStorage).addFriend(userId, friendId);
     }
 
     public void removeFriend(int userId, int friendId) {
-        User user = userStorage.getById(userId);
-        User friend = userStorage.getById(friendId);
-
-        user.getFriends().remove(friendId);
-        friend.getFriends().remove(userId);
-    }
-
-    public Set<Integer> getFriendIds(int userId) {
-        return userStorage.getFriends(userId);
+        try {
+            userStorage.getById(userId);
+            userStorage.getById(friendId);
+        } catch (EmptyResultDataAccessException e) {
+            throw new NotFoundException("Пользователь не найден");
+        }
+        userStorage.removeFriend(userId, friendId);
     }
 
     public List<User> getCommonFriends(int userId, int otherId) {
-        User user = userStorage.getById(userId);
-        if (user == null) {
-            throw new NotFoundException("Пользователь с id " + userId + " не найден");
-        }
-        User otherUser = userStorage.getById(otherId);
-        if (otherUser == null) {
-            throw new NotFoundException("Пользователь с id " + otherId + " не найден");
+        try {
+            userStorage.getById(userId);
+            userStorage.getById(otherId);
+        } catch (EmptyResultDataAccessException e) {
+            throw new NotFoundException("Пользователь не найден");
         }
 
-        Set<Integer> userFriends = getFriendIds(userId);
-        Set<Integer> otherFriends = getFriendIds(otherId);
-
-        return userFriends.stream()
-                .filter(otherFriends::contains)
-                .map(this::getById)
-                .collect(Collectors.toList());
+        return ((UserDbStorage) userStorage).getCommonFriends(userId, otherId);
     }
 
     public List<User> getFriends(int userId) {
-        return getFriendIds(userId).stream()
-                .map(this::getById)
-                .collect(Collectors.toList());
+        userStorage.getById(userId);
+        return userStorage.getFriends(userId);
     }
-
 
     private void validateName(User user) {
         if (user.getName() == null || user.getName().isBlank()) {
@@ -97,3 +92,4 @@ public class UserService {
         }
     }
 }
+
